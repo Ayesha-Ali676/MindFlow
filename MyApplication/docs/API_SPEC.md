@@ -1,37 +1,17 @@
 # REST API Specification
 
-**Base URL:** `http://localhost:8000` *(Substitute with actual production domain when deployed)*
-
-## Global Headers
-- `Content-Type: application/json`
+**Base URL:** `http://localhost:8000`
 
 ---
 
-## 1. Health Check
-Checks if the server instance is operational.
-
-**Endpoint:** `GET /health`
-
-**Success Response (200 OK):**
-```json
-{
-  "status": "active",
-  "message": "Wellness Wave API is running smoothly."
-}
-```
-
----
-
-## 2. Submit Daily Data
-Receives raw behavioral metrics from the Android Native (Kotlin) application and persists the payload into the database.
-
-**Endpoint:** `POST /daily-data`
+## 1. POST /daily-data
+Submit raw usage metrics and user mood.
 
 **Request Payload:**
 ```json
 {
   "user_id": "uuid-string",
-  "date": "YYYY-MM-DD",
+  "date": "2024-03-24",
   "screen_time": 320,
   "unlock_count": 45,
   "social_time": 120,
@@ -43,56 +23,34 @@ Receives raw behavioral metrics from the Android Native (Kotlin) application and
   "mood_score": 7
 }
 ```
-*(All time values are typically recorded in minutes)*
 
-**Success Response (201 Created):**
+**Success Response (201):**
 ```json
 {
   "status": "success",
-  "message": "Daily metrics stored securely.",
-  "data_id": 1054
-}
-```
-
-**Error Response (422 Unprocessable Entity - Validation Failed):**
-Returned if the schema constraint fails (e.g. string inputted where an integer was expected).
-```json
-{
-  "detail": [
-    {
-      "loc": ["body", "mood_score"],
-      "msg": "field required",
-      "type": "value_error.missing"
-    }
-  ]
+  "message": "Data stored",
+  "predicted_score": 7.2
 }
 ```
 
 ---
 
-## 3. Get Stress Prediction
-Triggers the Machine Learning Model to evaluate the most recent database records for a particular user.
+## 2. GET /prediction
+Get the latest stress prediction for a user.
 
-**Endpoint:** `GET /prediction`
+**Parameters:** `user_id` (string)
 
-**Query Parameters:**
-- `user_id` (string, required): The UUID of the specific client requiring the estimate.
-
-**Success Response (200 OK):**
+**Success Response (200):**
 ```json
 {
-  "user_id": "uuid-string",
-  "date_evaluated": "YYYY-MM-DD",
-  "predicted_stress_category": "Medium",
-  "confidence_score": 0.85,
-  "real_time_feedback": "Focus seems low today. Try a short walk."
+  "user_id": "uuid",
+  "stress_category": "Medium",
+  "feedback": "You've been scrolling a lot. Take a walk!",
+  "confidence": 0.85
 }
 ```
 
-**Error Response (404 Not Found):**
-Returned if no metrics have been submitted for this user previously.
-```json
-{
-  "detail": "Insufficient historical data found for the provided user to make a reliable prediction."
-}
-```
+---
+
+## 3. GET /health
+System health check.
