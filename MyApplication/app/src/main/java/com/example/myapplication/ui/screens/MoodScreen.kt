@@ -15,8 +15,9 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.example.myapplication.api.RetrofitClient
 import com.example.myapplication.data.UsageDataManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import retrofit2.awaitResponse
+import kotlinx.coroutines.withContext
 
 @Composable
 fun MoodScreen(innerPadding: PaddingValues) {
@@ -77,15 +78,20 @@ fun MoodScreen(innerPadding: PaddingValues) {
                 scope.launch {
                     try {
                         val metrics = usageDataManager.getDailyMetrics(stressLevel.roundToInt())
-                        val response = RetrofitClient.instance.submitDailyData(metrics).awaitResponse()
+                        val response = withContext(Dispatchers.IO) {
+                            RetrofitClient.instance.submitDailyData(metrics)
+                        }
                         
                         if (response.isSuccessful) {
-                            Toast.makeText(context, "Mood and metrics synced successfully!", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "✅ Data synced successfully to Firebase!", Toast.LENGTH_LONG).show()
                         } else {
-                            Toast.makeText(context, "Sync failed: ${response.code()}", Toast.LENGTH_LONG).show()
+                            val errorMsg = response.errorBody()?.string() ?: "Unknown error"
+                            Toast.makeText(context, "❌ Sync failed (${response.code()}): $errorMsg", Toast.LENGTH_LONG).show()
                         }
+                    } catch (e: java.net.ConnectException) {
+                        Toast.makeText(context, "🔌 Cannot connect to backend. Is it running on 10.0.2.2:8000?", Toast.LENGTH_LONG).show()
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "⚠️ Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
                     } finally {
                         isSubmitting = false
                     }
