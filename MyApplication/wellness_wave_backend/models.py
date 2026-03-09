@@ -11,7 +11,12 @@ class DailyMetrics(BaseModel):
     night_usage: float = Field(..., ge=0)
     session_count: int = Field(..., ge=0)
     scrolling_speed_avg: float = Field(..., ge=0)
-    usage_consistency_shift: float = Field(..., ge=0)
+    usage_consistency_shift: float = Field(...)
+    typing_cps: float = Field(0.0, ge=0)
+    typing_pauses: int = Field(0, ge=0)
+    scroll_erraticness: float = Field(0.0, ge=0)
+    app_switch_count: int = Field(0, ge=0)
+    reaction_delay_sec: float = Field(0.0, ge=0)
     mood_score: int = Field(..., ge=1, le=10)
 
     @validator('mood_score')

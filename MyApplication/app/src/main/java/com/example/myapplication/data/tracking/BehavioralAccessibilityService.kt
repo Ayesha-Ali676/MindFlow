@@ -54,8 +54,11 @@ class BehavioralAccessibilityService : AccessibilityService() {
             val windowMs = 5 * 60 * 1000L
             switchTimestamps.removeAll { it < currentTime - windowMs }
             
+            Log.d(TAG, "App Switched to: $currentPackage. Total switches in past 5m: ${switchTimestamps.size}")
+            
             if (switchTimestamps.size >= 8) {
                 // Rapid switching detected
+                Log.w(TAG, "Rapid App Switching Detected! Triggering Focus Alert.")
                 NotificationHelper.sendBehavioralAlert(
                     this,
                     "Focus Alert",
@@ -82,6 +85,7 @@ class BehavioralAccessibilityService : AccessibilityService() {
                     if (delta > maxTypingPauseMs) {
                         maxTypingPauseMs = delta
                     }
+                    Log.d(TAG, "Typing Pause Detected: ${delta}ms. Pause Count: $typingPausesCount")
                 }
                 
                 if (delta < 3000) { // Only count if typing is continuous
@@ -91,6 +95,8 @@ class BehavioralAccessibilityService : AccessibilityService() {
                     
                     val currentCps = (added.toFloat() / (delta / 1000f)).coerceAtMost(15f)
                     typingCps = (typingCps * 0.8f) + (currentCps * 0.2f)
+                    
+                    Log.d(TAG, "Typing Speed: " + String.format("%.2f", typingCps) + " CPS | Hesitation Avg: ${typingHesitationMs}ms")
                 }
             }
             lastTypingTime = currentTime
@@ -98,6 +104,7 @@ class BehavioralAccessibilityService : AccessibilityService() {
         
         if (removed > 0) {
             backspaceCount += removed
+            Log.d(TAG, "Backspace Used. Total Count: $backspaceCount")
         }
     }
 
@@ -115,6 +122,10 @@ class BehavioralAccessibilityService : AccessibilityService() {
             // Erraticness is high when speed varies wildly
             scrollErraticness = if (scrollVelocityAvg.absoluteValue > 0.1f) stdDev / scrollVelocityAvg.absoluteValue else 0f
             
+            if (scrollVelocities.size % 10 == 0) {
+                Log.d(TAG, "Scroll Status - Speed: " + String.format("%.2f", scrollVelocityAvg) + " | Erraticness: " + String.format("%.2f", scrollErraticness))
+            }
+            
             checkScrollAnomaly()
         }
     }
@@ -122,6 +133,7 @@ class BehavioralAccessibilityService : AccessibilityService() {
     private fun checkScrollAnomaly() {
         if (scrollErraticness > 1.8f && scrollVelocities.size > 20) {
             // High erraticness detected - likely anxiety or restlessness
+            Log.w(TAG, "High Scroll Erraticness Detected! Triggering Mindful Moment Alert.")
             NotificationHelper.sendBehavioralAlert(
                 this,
                 "Mindful Moment",
@@ -137,10 +149,26 @@ class BehavioralAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {
         Log.e(TAG, "Accessibility Service Interrupted")
+        ServiceConnectionManager.setConnected(false)
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d(TAG, "Behavioral Accessibility Service Connected")
+        ServiceConnectionManager.setConnected(true)
+        
+        // Show a visual popup to the user on the screen when it connects successfully
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            android.widget.Toast.makeText(
+                applicationContext, 
+                "Wellness Wave AI Active \uD83C\uDF0A\nNow monitoring background behavior", 
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    
+    override fun onUnbind(intent: android.content.Intent?): Boolean {
+        ServiceConnectionManager.setConnected(false)
+        return super.onUnbind(intent)
     }
 }

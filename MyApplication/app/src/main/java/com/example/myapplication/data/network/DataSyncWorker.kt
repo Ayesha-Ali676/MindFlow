@@ -14,22 +14,38 @@ class DataSyncWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val api = RetrofitClient.instance
 
         return try {
-            // Fetch default mood score (0 indicates no manual log yet)
             val metrics = usageDataManager.getDailyMetrics(moodScore = 0)
-            
-            Log.d("DataSyncWorker", "Attempting to sync behavioral data for user: ${metrics.user_id}")
-            
+
+            Log.d("DataSyncWorker", "============================================")
+            Log.d("DataSyncWorker", "  WELLNESS WAVE - SYNCING DATA TO FIREBASE  ")
+            Log.d("DataSyncWorker", "============================================")
+            Log.d("DataSyncWorker", "  User ID        : ${metrics.user_id}")
+            Log.d("DataSyncWorker", "  Date           : ${metrics.date}")
+            Log.d("DataSyncWorker", "  Screen Time    : ${metrics.screen_time} min")
+            Log.d("DataSyncWorker", "  Typing CPS     : ${metrics.typing_cps}")
+            Log.d("DataSyncWorker", "  Typing Pauses  : ${metrics.typing_pauses_count}")
+            Log.d("DataSyncWorker", "  Scroll Speed   : ${metrics.scrolling_speed_avg}")
+            Log.d("DataSyncWorker", "  Erraticness    : ${metrics.scroll_erraticness}")
+            Log.d("DataSyncWorker", "  App Switches   : ${metrics.session_count}")
+            Log.d("DataSyncWorker", "  Night Usage    : ${metrics.night_usage} min")
+            Log.d("DataSyncWorker", "  Social Time    : ${metrics.social_time} min")
+            Log.d("DataSyncWorker", "--------------------------------------------")
+
             val response = api.submitDailyData(metrics)
-            
+
             if (response.isSuccessful) {
-                Log.d("DataSyncWorker", "Successfully synced data to backend.")
+                Log.d("DataSyncWorker", "✅ SUCCESS — Data sent to Firebase via FastAPI!")
+                Log.d("DataSyncWorker", "============================================")
                 Result.success()
             } else {
-                Log.e("DataSyncWorker", "Failed to sync data: ${response.errorBody()?.string()}")
+                Log.e("DataSyncWorker", "❌ FAILED — Backend responded: ${response.code()} ${response.errorBody()?.string()}")
+                Log.d("DataSyncWorker", "============================================")
                 Result.retry()
             }
         } catch (e: Exception) {
-            Log.e("DataSyncWorker", "Error during data sync", e)
+            Log.e("DataSyncWorker", "❌ ERROR — Could not reach backend: ${e.message}")
+            Log.d("DataSyncWorker", "  (Is the backend running? Check your API base URL)")
+            Log.d("DataSyncWorker", "============================================")
             Result.retry()
         }
     }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.rounded.DirectionsRun
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Nightlight
@@ -67,6 +68,8 @@ fun HomeScreen(innerPadding: PaddingValues, onNavigateSettings: () -> Unit = {})
         }
     }
 
+    val isConnected by com.example.myapplication.data.tracking.ServiceConnectionManager.isServiceConnected.collectAsState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -91,21 +94,77 @@ fun HomeScreen(innerPadding: PaddingValues, onNavigateSettings: () -> Unit = {})
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Here's your wellness summary today",
+                    text = remember {
+                        java.text.SimpleDateFormat("EEEE, MMM d, yyyy", java.util.Locale.getDefault())
+                            .format(java.util.Date())
+                    },
                     style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Here's your wellness summary today",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(
-                onClick = onNavigateSettings,
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = {
+                        android.widget.Toast.makeText(context, "Syncing real-time behavior to AI Cloud...", android.widget.Toast.LENGTH_SHORT).show()
+                        val syncRequest = androidx.work.OneTimeWorkRequestBuilder<com.example.myapplication.data.network.DataSyncWorker>().build()
+                        androidx.work.WorkManager.getInstance(context).enqueue(syncRequest)
+                    },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = "Sync",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = onNavigateSettings,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Connection Status Banner
+        Surface(
+            color = if (isConnected) Color(0xFF00E37C).copy(alpha = 0.15f) else Color(0xFFFF5252).copy(alpha = 0.15f),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onSurface
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(if (isConnected) Color(0xFF00E37C) else Color(0xFFFF5252), CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isConnected) "AI Brain Connected & Monitoring" else "AI Brain Disconnected. Enable in Settings.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isConnected) Color(0xFF00C853) else Color(0xFFD50000),
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -128,7 +187,7 @@ fun HomeScreen(innerPadding: PaddingValues, onNavigateSettings: () -> Unit = {})
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "CURRENT STATUS",
+                            text = "CURRENT AI ANALYSIS",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
@@ -136,7 +195,7 @@ fun HomeScreen(innerPadding: PaddingValues, onNavigateSettings: () -> Unit = {})
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (isLoading) "Loading..." else (prediction?.stress_level ?: "Balanced"),
+                            text = if (isLoading) "Analyzing..." else (prediction?.stress_level ?: "Balanced"),
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onPrimary
@@ -150,33 +209,37 @@ fun HomeScreen(innerPadding: PaddingValues, onNavigateSettings: () -> Unit = {})
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
                             strokeWidth = 8.dp,
                         )
-                        // A rough wellness score mapped from stress level
-                        val score = when (prediction?.stress_level) {
-                            "Low" -> 92
-                            "Medium" -> 74
-                            "High" -> 45
-                            else -> 85
-                        }
+                        
+                        // Use AI Confidence as the visual score
+                        val aiConfidence = ((prediction?.confidence_score ?: 0.85f) * 100).toInt()
                         
                         val animatedProgress by animateFloatAsState(
-                            targetValue = score / 100f,
+                            targetValue = aiConfidence / 100f,
                             animationSpec = tween(1500, easing = FastOutSlowInEasing),
                             label = "progress"
                         )
                         
                         CircularProgressIndicator(
-                            progress = if (isLoading) 0f else animatedProgress,
+                            progress = if (isLoading) 0.1f else animatedProgress,
                             modifier = Modifier.size(80.dp),
                             color = MaterialTheme.colorScheme.onPrimary,
                             strokeWidth = 8.dp,
                             strokeCap = StrokeCap.Round
                         )
-                        Text(
-                            text = if (isLoading) "..." else "$score",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = if (isLoading) "..." else "$aiConfidence",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Text(
+                                text = "CONF",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 8.sp,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha=0.7f)
+                            )
+                        }
                     }
                 }
 
@@ -221,14 +284,42 @@ fun HomeScreen(innerPadding: PaddingValues, onNavigateSettings: () -> Unit = {})
         
         Spacer(modifier = Modifier.height(16.dp))
 
+        val todayScreenTime = remember {
+            val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+            val calendar = Calendar.getInstance()
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            
+            val stats = usageStatsManager.queryUsageStats(
+                android.app.usage.UsageStatsManager.INTERVAL_DAILY,
+                calendar.timeInMillis,
+                System.currentTimeMillis()
+            )
+            
+            var totalMs = 0L
+            if (stats != null) {
+                for (stat in stats) {
+                    if (stat.totalTimeInForeground > 0) {
+                        totalMs += stat.totalTimeInForeground
+                    }
+                }
+            }
+            
+            val hours = (totalMs / (1000 * 60 * 60)).toInt()
+            val minutes = ((totalMs / (1000 * 60)) % 60).toInt()
+            
+            if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+        }
+
         // 2x2 Grid
         Row(modifier = Modifier.fillMaxWidth()) {
             MetricCard(
                 modifier = Modifier.weight(1f),
                 title = "Screen Time",
-                value = "4h 12m",
+                value = todayScreenTime,
                 icon = Icons.Rounded.PhoneAndroid,
-                trend = "+12% vs yesterday",
+                trend = "Live Tracking Active",
                 trendPositive = false
             )
             Spacer(modifier = Modifier.width(16.dp))
